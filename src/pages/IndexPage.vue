@@ -2,8 +2,32 @@
   <q-page class="row q-pt-xl">
     <div class="full-width q-px-xl">
       <div class="q-mb-xl">
-        <q-input v-model="tempData.name" label="姓名" />
-        <q-input v-model="tempData.age" label="年齡" type="number" />
+        <q-input
+          v-model="tempData.name"
+          label="姓名"
+          :rules="[(val) => !!val || '姓名不得為空']"
+          @blur="
+            (v) => {
+              v && validateName();
+            }
+          "
+        />
+        <q-input
+          v-model="tempData.age"
+          label="年齡"
+          type="number"
+          :rules="[
+            (val) => !!val || '年齡不得為空',
+            (val) =>
+              (val && val > 0 && Number.isInteger(Number(val))) ||
+              '年齡必須是正整數',
+          ]"
+          @blur="
+            (v) => {
+              v && validateAge();
+            }
+          "
+        />
         <q-btn color="primary" class="q-mt-md" @click="handleAdd">新增</q-btn>
       </div>
 
@@ -18,15 +42,6 @@
         separator="cell"
         :rows-per-page-options="[0]"
       >
-        <template v-slot:header="props">
-          <q-tr :props="props">
-            <q-th v-for="col in props.cols" :key="col.name" :props="props">
-              {{ col.label }}
-            </q-th>
-            <q-th></q-th>
-          </q-tr>
-        </template>
-
         <template v-slot:body="props">
           <q-tr :props="props">
             <q-td
@@ -35,7 +50,13 @@
               :props="props"
               style="min-width: 120px"
             >
-              <div>{{ col.value }}</div>
+              <q-input
+                v-model="props.row[col.name]"
+                dense
+                borderless
+                :readonly="!props.row.isEditing"
+                @blur="handleInlineEdit(props.row)"
+              />
             </q-td>
             <q-td class="text-right" auto-width v-if="tableButtons.length > 0">
               <q-btn
@@ -87,8 +108,23 @@ interface btnType {
   icon: string;
   status: string;
 }
+const nameError = ref('');
+const ageError = ref('');
 
-const blockData = ref([]);
+// 定義API返回的數據項的接口
+interface DataItem {
+  id: number;
+  name: string;
+  age: number;
+  [key: string]: any; // 為了允許其他可能的屬性
+}
+
+// 定義包含isEditing的數據項接口
+interface DataItemWithEditing extends DataItem {
+  isEditing: boolean;
+}
+
+const blockData = ref<DataItemWithEditing[]>([]);
 const tableConfig = ref([
   {
     label: '姓名',
@@ -103,7 +139,7 @@ const tableConfig = ref([
     align: 'left',
   },
 ]);
-const tableButtons = ref([
+const tableButtons = ref<btnType[]>([
   {
     label: '編輯',
     icon: 'edit',
@@ -129,8 +165,11 @@ onMounted(async () => {
 
 async function fetchData() {
   try {
-    const response = await axios.get(`${apiUrl}/a`);
-    blockData.value = response.data;
+    const response = await axios.get<DataItem[]>(`${apiUrl}/a`);
+    blockData.value = response.data.map((item: DataItem) => ({
+      ...item,
+      isEditing: false,
+    }));
   } catch (error) {
     console.error('Error fetching data:', error);
   }
@@ -146,14 +185,21 @@ async function handleAdd() {
   }
 }
 
-async function handleClickOption(btn: btnType, data: any) {
-  if (btn.status === 'edit') {
+async function handleInlineEdit(row: DataItemWithEditing) {
+  if (row.isEditing) {
     try {
-      await axios.patch(apiUrl, data);
+      await axios.patch(apiUrl, { id: row.id, name: row.name, age: row.age });
+      row.isEditing = false;
       await fetchData();
     } catch (error) {
       console.error('Error updating data:', error);
     }
+  }
+}
+
+async function handleClickOption(btn: btnType, data: DataItemWithEditing) {
+  if (btn.status === 'edit') {
+    data.isEditing = !data.isEditing;
   } else if (btn.status === 'delete') {
     try {
       await axios.delete(`${apiUrl}/${data.id}`);
@@ -161,6 +207,27 @@ async function handleClickOption(btn: btnType, data: any) {
     } catch (error) {
       console.error('Error deleting data:', error);
     }
+  }
+}
+
+function validateName() {
+  if (!tempData.value.name) {
+    nameError.value = '姓名不得為空';
+  } else {
+    nameError.value = '';
+  }
+}
+
+function validateAge() {
+  if (!tempData.value.age) {
+    ageError.value = '年齡不得為空';
+  } else if (
+    !Number.isInteger(Number(tempData.value.age)) ||
+    Number(tempData.value.age) <= 0
+  ) {
+    ageError.value = '年齡必須是正整數';
+  } else {
+    ageError.value = '';
   }
 }
 </script>
@@ -175,4 +242,3 @@ async function handleClickOption(btn: btnType, data: any) {
   font-size: 18px;
 }
 </style>
-Last edited just now

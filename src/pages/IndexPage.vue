@@ -200,12 +200,19 @@ async function handleClickOption(btn: btnType, data: DataItemWithEditing) {
   if (btn.status === 'edit') {
     data.isEditing = !data.isEditing;
   } else if (btn.status === 'delete') {
-    try {
-      await axios.delete(`${apiUrl}/${data.id}`);
-      await fetchData();
-    } catch (error) {
-      console.error('Error deleting data:', error);
-    }
+    $q.dialog({
+      title: '提示',
+      message: '是否確定刪除該筆資料？',
+      cancel: true,
+      persistent: true,
+    }).onOk(async () => {
+      try {
+        await axios.delete(`${apiUrl}/${data.id}`);
+        await fetchData();
+      } catch (error) {
+        console.error('刪除數據時出錯:', error);
+      }
+    });
   }
 }
 

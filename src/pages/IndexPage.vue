@@ -3,8 +3,8 @@
     <div class="full-width q-px-xl">
       <div class="q-mb-xl">
         <q-input v-model="tempData.name" label="姓名" />
-        <q-input v-model="tempData.age" label="年齡" />
-        <q-btn color="primary" class="q-mt-md">新增</q-btn>
+        <q-input v-model="tempData.age" label="年齡" type="number" />
+        <q-btn color="primary" class="q-mt-md" @click="handleAdd">新增</q-btn>
       </div>
 
       <q-table
@@ -80,18 +80,15 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { QTableProps } from 'quasar';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+
 interface btnType {
   label: string;
   icon: string;
   status: string;
 }
-const blockData = ref([
-  {
-    name: 'test',
-    age: 25,
-  },
-]);
+
+const blockData = ref([]);
 const tableConfig = ref([
   {
     label: '姓名',
@@ -123,8 +120,48 @@ const tempData = ref({
   name: '',
   age: '',
 });
-function handleClickOption(btn, data) {
-  // ...
+
+const apiUrl = 'https://dahua.metcfire.com.tw/api/CRUDTest';
+
+onMounted(async () => {
+  await fetchData();
+});
+
+async function fetchData() {
+  try {
+    const response = await axios.get(`${apiUrl}/a`);
+    blockData.value = response.data;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  }
+}
+
+async function handleAdd() {
+  try {
+    await axios.post(apiUrl, tempData.value);
+    await fetchData();
+    tempData.value = { name: '', age: '' };
+  } catch (error) {
+    console.error('Error adding data:', error);
+  }
+}
+
+async function handleClickOption(btn: btnType, data: any) {
+  if (btn.status === 'edit') {
+    try {
+      await axios.patch(apiUrl, data);
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating data:', error);
+    }
+  } else if (btn.status === 'delete') {
+    try {
+      await axios.delete(`${apiUrl}/${data.id}`);
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting data:', error);
+    }
+  }
 }
 </script>
 
@@ -138,3 +175,4 @@ function handleClickOption(btn, data) {
   font-size: 18px;
 }
 </style>
+Last edited just now

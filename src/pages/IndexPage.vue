@@ -6,11 +6,6 @@
           v-model="tempData.name"
           label="姓名"
           :rules="[(val) => !!val || '姓名不得為空']"
-          @blur="
-            (v) => {
-              v && validateName();
-            }
-          "
         />
         <q-input
           v-model="tempData.age"
@@ -22,13 +17,10 @@
               (val && val > 0 && Number.isInteger(Number(val))) ||
               '年齡必須是正整數',
           ]"
-          @blur="
-            (v) => {
-              v && validateAge();
-            }
-          "
         />
-        <q-btn color="primary" class="q-mt-md" @click="handleAdd">新增</q-btn>
+        <q-btn color="primary" class="q-mt-md" @click="handleAddOrEdit">
+          {{ tempData.id !== null ? '更新' : '新增' }}
+        </q-btn>
       </div>
 
       <q-table
@@ -42,6 +34,15 @@
         separator="cell"
         :rows-per-page-options="[0]"
       >
+        <template v-slot:header="props">
+          <q-tr :props="props">
+            <q-th v-for="col in props.cols" :key="col.name" :props="props">
+              {{ col.label }}
+            </q-th>
+            <q-th></q-th>
+          </q-tr>
+        </template>
+
         <template v-slot:body="props">
           <q-tr :props="props">
             <q-td
@@ -50,13 +51,7 @@
               :props="props"
               style="min-width: 120px"
             >
-              <q-input
-                v-model="props.row[col.name]"
-                dense
-                borderless
-                :readonly="!props.row.isEditing"
-                @blur="handleInlineEdit(props.row)"
-              />
+              <div>{{ col.value }}</div>
             </q-td>
             <q-td class="text-right" auto-width v-if="tableButtons.length > 0">
               <q-btn
@@ -99,17 +94,16 @@
 </template>
 
 <script setup lang="ts">
-import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { QTableProps, useQuasar } from 'quasar';
+import axios from 'axios';
+
 interface btnType {
   label: string;
   icon: string;
   status: string;
 }
-const nameError = ref('');
-const ageError = ref('');
-const $q = useQuasar();
+
 // 定義API返回的數據項的接口
 interface DataItem {
   id: number;
@@ -123,6 +117,9 @@ interface DataItemWithEditing extends DataItem {
   isEditing: boolean;
 }
 
+const $q = useQuasar();
+const nameError = ref('');
+const ageError = ref('');
 const blockData = ref<DataItemWithEditing[]>([]);
 const tableConfig = ref([
   {
@@ -138,6 +135,7 @@ const tableConfig = ref([
     align: 'left',
   },
 ]);
+
 const tableButtons = ref<btnType[]>([
   {
     label: '編輯',
@@ -152,6 +150,7 @@ const tableButtons = ref<btnType[]>([
 ]);
 
 const tempData = ref({
+  id: null as number | null,
   name: '',
   age: '',
 });
@@ -174,31 +173,44 @@ async function fetchData() {
   }
 }
 
-async function handleAdd() {
-  try {
-    await axios.post(apiUrl, tempData.value);
-    await fetchData();
-    tempData.value = { name: '_', age: '1' };
-  } catch (error) {
-    console.error('Error adding data:', error);
-  }
-}
-
-async function handleInlineEdit(row: DataItemWithEditing) {
-  if (row.isEditing) {
+async function handleAddOrEdit() {
+  if (tempData.value.id !== null) {
+    // 編輯模式
     try {
-      await axios.patch(apiUrl, { id: row.id, name: row.name, age: row.age });
-      row.isEditing = false;
+      await axios.patch(apiUrl, {
+        id: tempData.value.id,
+        name: tempData.value.name,
+        age: Number(tempData.value.age),
+      });
       await fetchData();
+      resetForm();
     } catch (error) {
       console.error('Error updating data:', error);
+    }
+  } else {
+    // 新增模式
+    try {
+      await axios.post(apiUrl, {
+        name: tempData.value.name,
+        age: Number(tempData.value.age),
+      });
+      await fetchData();
+      resetForm();
+    } catch (error) {
+      console.error('Error adding data:', error);
     }
   }
 }
 
 async function handleClickOption(btn: btnType, data: DataItemWithEditing) {
   if (btn.status === 'edit') {
-    data.isEditing = !data.isEditing;
+    console.log('data', data);
+    // 將選中行的數據填充到 tempData 中
+    tempData.value = {
+      id: data.id,
+      name: data.name,
+      age: data.age.toString(),
+    };
   } else if (btn.status === 'delete') {
     $q.dialog({
       title: '提示',
@@ -216,25 +228,8 @@ async function handleClickOption(btn: btnType, data: DataItemWithEditing) {
   }
 }
 
-function validateName() {
-  if (!tempData.value.name) {
-    nameError.value = '姓名不得為空';
-  } else {
-    nameError.value = '';
-  }
-}
-
-function validateAge() {
-  if (!tempData.value.age) {
-    ageError.value = '年齡不得為空';
-  } else if (
-    !Number.isInteger(Number(tempData.value.age)) ||
-    Number(tempData.value.age) <= 0
-  ) {
-    ageError.value = '年齡必須是正整數';
-  } else {
-    ageError.value = '';
-  }
+function resetForm() {
+  tempData.value = { id: null, name: '_', age: '1' };
 }
 </script>
 

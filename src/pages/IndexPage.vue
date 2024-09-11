@@ -100,9 +100,8 @@
 
 <script setup lang="ts">
 import axios from 'axios';
-import { QTableProps } from 'quasar';
 import { ref, onMounted } from 'vue';
-
+import { QTableProps, useQuasar } from 'quasar';
 interface btnType {
   label: string;
   icon: string;
@@ -110,7 +109,7 @@ interface btnType {
 }
 const nameError = ref('');
 const ageError = ref('');
-
+const $q = useQuasar();
 // 定義API返回的數據項的接口
 interface DataItem {
   id: number;
@@ -179,7 +178,7 @@ async function handleAdd() {
   try {
     await axios.post(apiUrl, tempData.value);
     await fetchData();
-    tempData.value = { name: '', age: '' };
+    tempData.value = { name: '_', age: '1' };
   } catch (error) {
     console.error('Error adding data:', error);
   }
